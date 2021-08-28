@@ -105,7 +105,7 @@ void motorTurn(boolean direction){
 
   while(cont && stepperEnabled){ // While the JS is not center or the opposite direction
     jsYVal = analogRead(JOYSTICK_Y);
-    interval = map(abs(jsYMid-jsYVal),0,jsYMid,2000,500); // Calculate interval between stepper steps
+    interval = map(abs(jsYMid-jsYVal),0,jsYMid,3000,500); // Calculate interval between stepper steps
     Serial.print("Interval: "); Serial.println(interval);
     // Complete 1 step of motor
     digitalWrite(STEPPER_STEP, HIGH);
@@ -114,7 +114,7 @@ void motorTurn(boolean direction){
     delayMicroseconds(interval);
 
     // Check if JS is back in center or changed direction
-    if(!((direction && jsYVal > jsYMid) || (!direction && jsYVal < jsYMid))){
+    if(!((direction && (jsYVal > (jsYMid + 10))) || (!direction && (jsYVal < (jsYMid - 10))))){
       cont = false;
     }
   }
