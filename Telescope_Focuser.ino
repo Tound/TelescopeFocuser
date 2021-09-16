@@ -86,6 +86,7 @@ void updateScreen(void){
   // Print direction
   display.setCursor(2, 25);
   display.print(F("Dir: "));
+  compassArray[strlen(compassArray)-1] = NULL;
   display.print(compassArray);
   
   // Update the display
@@ -131,7 +132,7 @@ void motorState(void){
   // Enable stepper (Active Low)
   stepperEnabled = !stepperEnabled;
   digitalWrite(STEPPER_ENABLE, !stepperEnabled);
-  delayMicroseconds(10000);
+  delayMicroseconds(100000);
 }
 
 /* Set the microstep pin */
@@ -196,7 +197,9 @@ void setup() {
   Serial.println("Pins set");
   
   compass.init();
-  compass.setCalibration(-1645, 1585, -2723, 841, -1545, 1363);
+  compass.setCalibration(-1081, 658, -40, 1398, -2200, 0);
+
+
 
   Serial.println("Compass intialised");
   initialiseScreen();
