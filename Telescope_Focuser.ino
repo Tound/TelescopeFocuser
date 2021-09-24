@@ -5,7 +5,7 @@ Built to control an Arduino controlled stepper motor that is used
 to control the focus of a telescope
 
 V1.2
-Last updated: 28/8/21
+Last updated: 16/9/21
 */
 
 #include <SPI.h>
@@ -46,7 +46,7 @@ int jsYMid = 512;
 
 boolean stepperEnabled = false;
 
-int currentMicrostep = 0;  // Current microstep mode (e.g. 0,1,2,3,4)
+byte currentMicrostep = 0;  // Current microstep mode (e.g. 0,1,2,3,4)
 
 byte microSteps[5] = {
   0b000, // Full step
@@ -106,7 +106,7 @@ void motorTurn(boolean direction){
 
   while(cont && stepperEnabled){ // While the JS is not center or the opposite direction
     jsYVal = analogRead(JOYSTICK_Y);
-    interval = map(abs(jsYMid-jsYVal),0,jsYMid,3000,500); // Calculate interval between stepper steps
+    interval = map(abs(jsYMid-jsYVal),0,jsYMid,5000,500); // Calculate interval between stepper steps
     Serial.print("Interval: "); Serial.println(interval);
     // Complete 1 step of motor
     digitalWrite(STEPPER_STEP, HIGH);
@@ -198,6 +198,7 @@ void setup() {
   
   compass.init();
   compass.setCalibration(-1081, 658, -40, 1398, -2200, 0);
+  //compass.setMode();
 
 
 
