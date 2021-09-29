@@ -12,12 +12,13 @@ Last updated: 16/9/21
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <QMC5883LCompass.h>
+#include "TelescopeFocuser.h"
 
 #define COMPASS_ADDRESS 0xD
 
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 32 // OLED display height, in pixels
-#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_WIDTH 128    // OLED display width, in pixels
+#define SCREEN_HEIGHT 32    // OLED display height, in pixels
+#define OLED_RESET     4    // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C
 
 #define STEPPER_DIR 6
@@ -27,7 +28,6 @@ Last updated: 16/9/21
 #define MS3 11
 #define STEPPER_ENABLE 12
 
-int stepsPerRevolution = 200;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 QMC5883LCompass compass;
@@ -35,7 +35,7 @@ char compassArray[3];
 
 #define JOYSTICK_X 15
 #define JOYSTICK_Y 14
-#define JOYSTICK_SW 2 // Attach interrupt
+#define JOYSTICK_SW 2
 
 int jsXVal = 0;   // Joystick X Axis
 int jsYVal = 0;   // Joystick Y Axis
@@ -55,6 +55,15 @@ byte microSteps[5] = {
   0b110, // Eighth step
   0b111  // Sixteeth step
 };
+
+
+/* Calibration of gyro */
+void compassCalibration(void){
+
+}
+
+
+
 
 /* Update the Adafruit OLED display */
 void updateScreen(void){
@@ -130,9 +139,16 @@ char calculateElevation(void){//int x, int y, int z){
 void motorState(void){
   // Joystick Button
   // Enable stepper (Active Low)
-  stepperEnabled = !stepperEnabled;
-  digitalWrite(STEPPER_ENABLE, !stepperEnabled);
-  delayMicroseconds(100000);
+
+  // Debounce for Interrupt
+  static unsigned long last_interrupt = 0;
+  unsigned long interrupt_time = millis();
+
+  if(interrupt_time - last_interrupt > 100){
+    stepperEnabled = !stepperEnabled;
+    digitalWrite(STEPPER_ENABLE, !stepperEnabled);
+  }
+  last_interrupt = interrupt_time;
 }
 
 /* Set the microstep pin */
@@ -168,6 +184,8 @@ void initialiseScreen(void){
   display.display();
 }
 
+
+
 /*
  * MAIN CODE
  * INC. SETUP AND LOOP
@@ -196,16 +214,18 @@ void setup() {
 
   Serial.println("Pins set");
   
+  compassCalibration();
+
   compass.init();
   compass.setCalibration(-1081, 658, -40, 1398, -2200, 0);
   //compass.setMode();
 
 
-
   Serial.println("Compass intialised");
   initialiseScreen();
   Serial.println("Screen initialised\n=============");
-  //calibrateJS();
+
+  // Obtain middle values for the JS pots (Calibration)
   jsXMid = analogRead(JOYSTICK_X);
   jsYMid = analogRead(JOYSTICK_Y);
 }
@@ -222,12 +242,17 @@ void loop() {
   Serial.print(F("SW: "));Serial.println(!jsSWVal);
 
   // Read compass
+
+
   compass.read();
   byte a = compass.getAzimuth();
   delay(20);
 
   compass.getDirection(compassArray, a);
   delay(20);
+
+  // Tilt compensated values for compass
+
 
   // Compare joystick values
 
@@ -236,7 +261,6 @@ void loop() {
   if(jsXVal > (1.5 * jsXMid)){
     if(currentMicrostep != sizeof(microSteps)-1){
       currentMicrostep++;
-      stepsPerRevolution = stepsPerRevolution*2;
       // Increase microstep
       setMicrostep();
     }
@@ -245,7 +269,6 @@ void loop() {
   else if(jsXVal < (0.5 * jsXMid)){
     if(currentMicrostep != 0){
       currentMicrostep--;
-      stepsPerRevolution = stepsPerRevolution/2;
       // Decrease microstep
       setMicrostep();
     }
