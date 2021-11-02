@@ -4,17 +4,17 @@ Written by Thomas Pound
 Built to control an Arduino controlled stepper motor that is used
 to control the focus of a telescope
 
-V1.2
-Last updated: 16/9/21
+V1.3
+Last updated: 2/11/21
 */
 
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <QMC5883LCompass.h>
-#include "TelescopeFocuser.h"
+#include "Tilt_Compass.h"
 
 #define COMPASS_ADDRESS 0xD
+#define MPU6050_ADDRESS 0x68
 
 #define SCREEN_WIDTH 128    // OLED display width, in pixels
 #define SCREEN_HEIGHT 32    // OLED display height, in pixels
@@ -28,14 +28,20 @@ Last updated: 16/9/21
 #define MS3 11
 #define STEPPER_ENABLE 12
 
-
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-QMC5883LCompass compass;
-char compassArray[3];
-
 #define JOYSTICK_X 15
 #define JOYSTICK_Y 14
 #define JOYSTICK_SW 2
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+//QMC5883LCompass compass;
+//Adafruit_MPU6050 accel;
+
+char compassArray[3];
+byte compassTemp;
+int compassElevation;
+
+TiltCompass tiltCompass;
 
 int jsXVal = 0;   // Joystick X Axis
 int jsYVal = 0;   // Joystick Y Axis
@@ -56,15 +62,6 @@ byte microSteps[5] = {
   0b111  // Sixteeth step
 };
 
-
-/* Calibration of gyro */
-void compassCalibration(void){
-
-}
-
-
-
-
 /* Update the Adafruit OLED display */
 void updateScreen(void){
   // Print to screen
@@ -74,10 +71,9 @@ void updateScreen(void){
   // Print elevation
   display.setCursor(2, 2);
   display.print(F("Elevation: "));
-  //display.print(calculateElevation());
   display.setCursor(5, 12);
-  display.print(F("+90"));
-  display.print(F(" degs"));
+  display.print(compassElevation);
+  display.print(" degs");
 
   // Print  microstepping val
   display.setCursor(70, 2);
@@ -130,11 +126,6 @@ void motorTurn(boolean direction){
   }
 }
 
-char calculateElevation(void){//int x, int y, int z){
-  char elevation[3] = {'+','9','0'};
-  return elevation;
-}
-
 /* On the JS button press, enable/disable the motor */
 void motorState(void){
   // Joystick Button
@@ -178,7 +169,7 @@ void initialiseScreen(void){
   display.setCursor(10,0);
   display.println(F("TELESCOPE\n  FOCUSER"));
   display.display();
-  delay(2000);
+  delay(1000);
 
   display.clearDisplay();
   display.display();
@@ -213,46 +204,29 @@ void setup() {
   digitalWrite(MS3,LOW);
 
   Serial.println("Pins set");
+
+  tiltCompass.init();
   
-  compassCalibration();
-
-  compass.init();
-  compass.setCalibration(-1081, 658, -40, 1398, -2200, 0);
-  //compass.setMode();
-
-
-  Serial.println("Compass intialised");
   initialiseScreen();
   Serial.println("Screen initialised\n=============");
-
+  
   // Obtain middle values for the JS pots (Calibration)
   jsXMid = analogRead(JOYSTICK_X);
   jsYMid = analogRead(JOYSTICK_Y);
 }
 
+
+// MAIN LOOP
 void loop() {
   // Read joystick values
   jsXVal = analogRead(JOYSTICK_X);
   jsYVal = analogRead(JOYSTICK_Y);
   jsSWVal = digitalRead(JOYSTICK_SW);
 
-  Serial.println(F("Joystick Values"));
-  Serial.print(F("X: "));Serial.println(jsXVal);
-  Serial.print(F("Y: "));Serial.println(jsYVal);
-  Serial.print(F("SW: "));Serial.println(!jsSWVal);
-
-  // Read compass
-
-
-  compass.read();
-  byte a = compass.getAzimuth();
-  delay(20);
-
-  compass.getDirection(compassArray, a);
-  delay(20);
-
-  // Tilt compensated values for compass
-
+  // Tilt compensate the compass
+  tiltCompass.tiltCompensate(compassArray);
+  compassTemp = tiltCompass.getTemp();
+  compassElevation = tiltCompass.getElevation();
 
   // Compare joystick values
 
@@ -287,5 +261,5 @@ void loop() {
 
   updateScreen();
   
-  delay(100); // Debounce/allow changes to take place
+  delay(500); // Debounce/allow changes to take place
 }
